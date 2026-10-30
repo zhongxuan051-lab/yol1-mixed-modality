@@ -1,0 +1,50 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# YOLO11 object detection model with P3-P5 outputs. For Usage examples see https://docs.ultralytics.com/tasks/detect
+
+# Parameters
+nc: 1 # 类别数，对应 COCO 数据集的 80 个类别
+scales: # 模型缩放系数，控制不同大小模型的深度、宽度和最大通道数
+  # [depth, width, max_channels]
+  # depth可以通俗理解为“网络的层数或模块的堆叠数量”。depth 越大，网络越“深”，可以提取更复杂的特征，但也更容易过拟合，训练更慢。
+  # width可以通俗理解为“每一层神经元的数量”。width 越小（如 n 版的 0.25），每层处理的通道数越少，模型参数越少，计算量（FLOPs）越小，但特征表达能力也相对弱一些。width 越大（如 x 版的 1.5），通道数越多，模型越“宽”，能力越强，但也更吃显存。
+  # max_channels可以通俗理解为“通道数的上限”。防止模型变得过大。即使 width 很大，乘以原始通道数后得到的值，如果超过了 max_channels，就会被强制限制在这个最大值。
+  n: [0.50, 0.25, 1024] # summary: 319 layers, 2624080 parameters, 2624064 gradients, 6.6 GFLOPs   nano     例如，C3k2 的 args 中如果是 [256, False, 0.25]，那么实际的输出通道数会是 256 * 0.25 = 64
+  s: [0.50, 0.50, 1024] # summary: 319 layers, 9458752 parameters, 9458736 gradients, 21.7 GFLOPs  small
+  m: [0.50, 1.00, 512] # summary: 409 layers, 20114688 parameters, 20114672 gradients, 68.5 GFLOPs  medium
+  l: [1.00, 1.00, 512] # summary: 631 layers, 25372160 parameters, 25372144 gradients, 87.6 GFLOPs  large
+  x: [1.00, 1.50, 512] # summary: 631 layers, 56966176 parameters, 56966160 gradients, 196.0 GFLOPs  xlarge
+
+# YOLO11n backbone  一般P3适用于检测小目标，P4适用于检测小目标，P5适用于检测小目标
+backbone: #负责“看”和“提取特征”
+  # [from, repeats, module, args] from=-1代表数据来自上一层（紧挨着的前一层），repeats 控制着当前模块内部的子块被重复堆叠多少次
+  - [-1, 1, Conv, [64, 3, 2]] # 0-P1/2    配置文件中写的确实是 [64, 3, 2]，但实际构建时通道数确实会根据 width 缩放
+  - [-1, 1, Conv, [128, 3, 2]] # 1-P2/4 代表层号1 P2阶段， /4是当前特征图相比原始输入图片缩放 1/4
+  - [-1, 2, C3k2, [256, False, 0.25]] #  YOLO11 的特色模块，替代了 YOLOv8 的 C2f    # repeats = 2：这个 C3k2 模块内部的核心块会被重复 2 次（基准值），实际构建时repeats 的最终值 = 配置文件中的 repeats × scales 中的 depth。
+  - [-1, 1, Conv, [256, 3, 2]] # 3-P3/8
+  - [-1, 2, C3k2, [512, False, 0.25]]
+  - [-1, 1, Conv, [512, 3, 2]] # 5-P4/16
+  - [-1, 2, C3k2, [512, True]]
+  - [-1, 1, Conv, [1024, 3, 2]] # 7-P5/32
+  - [-1, 2, C3k2, [1024, True]]
+  - [-1, 1, SPPF, [1024, 5]] # 9
+  - [-1, 2, C2PSA, [1024]] # 10   # YOLO11 新增的特色模块
+
+# YOLO11n head
+head: #负责“融合特征”和“做出预测”。与backone区分的核心依据是 “是否有来自后面层的信息回流（上采样 + 拼接）”。backbone（主干网络）：它的任务是 “单向、自底向上” 地提取特征。数据流从输入图片开始，经过一层层下采样（缩放），特征图越来越小，语义越来越强。没有回头路，一直往前走。head（检测头）：它的任务是 “双向、融合与预测”。它先通过 上采样 让深层特征回流，与浅层特征拼接融合（形成 FPN/PAN 结构），最后在三个尺度上输出检测结果。不仅有前向，还有反向融合。
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]] #上采样：将第10层的 20x20 放大到 40x40。
+  - [[-1, 6], 1, Concat, [1]] # cat backbone P4  将上采样后的 40x40 特征图与第6层（Backbone P4, 40x40）在通道维度拼接。
+  - [-1, 2, C3k2, [512, False]] # 13 融合特征。输出 512 x 40 x 40
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]  #上采样：将 40x40 放大到 80x80
+  - [[-1, 4], 1, Concat, [1]] # cat backbone P3   拼接：上采样后的 80x80 与第4层（Backbone P3, 80x80）拼接。
+  - [-1, 2, C3k2, [256, False]] # 16 (P3/8-small)  # 融合特征。输出 256 x 80 x 80。这是第一个检测头输出 (P3)。
+
+  - [-1, 1, Conv, [256, 3, 2]]  # 标准卷积，步长2下采样：80x80 → 40x40。
+  - [[-1, 13], 1, Concat, [1]] # cat head P4   下采样后的 40x40 与第13层（Head P4, 40x40）拼接。
+  - [-1, 2, C3k2, [512, False]] # 19 (P4/16-medium)  融合特征。输出 512 x 40 x 40。第二个检测头输出 (P4)。
+
+  - [-1, 1, Conv, [512, 3, 2]]# 标准卷积，步长2下采样：40x40 → 20x20。
+  - [[-1, 10], 1, Concat, [1]] # cat head P5  下采样后的 20x20 与第10层（Backbone P5, 20x20）拼接。
+  - [-1, 2, C3k2, [1024, True]] # 22 (P5/32-large)  融合特征。输出 1024 x 20 x 20。第三个检测头输出 (P5)。
+
+  - [[16, 19, 22], 1, Detect, [nc]] # Detect(P3, P4, P5)  最终的检测层：接收 P3, P4, P5 三个尺度的特征图，输出最终的检测框和类别。nc=80 表示类别数。
