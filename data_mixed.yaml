@@ -1,0 +1,16 @@
+path: "/home/ot/Students/zx/yolo11-mixed-modality"
+
+train:
+  - person vis/train/images
+  - person ir/train/images
+
+val:
+  - person vis/valid/images
+  - person ir/valid/images
+
+test:
+  - person vis/test/images
+  - person ir/test/images
+
+nc: 1
+names: ['0']
