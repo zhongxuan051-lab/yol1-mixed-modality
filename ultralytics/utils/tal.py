@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from .checks import check_version
 from .metrics import bbox_iou, probiou
-from .ops import xywhr2xyxyxyxy
+from .ops import xywh2xyxy, xywhr2xyxyxyxy, xyxy2xywh
 
 TORCH_1_10 = check_version(torch.__version__, "1.10.0")
 
@@ -263,6 +263,32 @@ class TaskAlignedAssigner(nn.Module):
         # Find each grid serve which gt(index)
         target_gt_idx = mask_pos.argmax(-2)  # (b, h*w)
         return target_gt_idx, fg_mask, mask_pos
+
+
+class StalGcdAssigner(TaskAlignedAssigner):
+    """Expand tiny candidate regions and score predicted boxes against the original GT with GCD."""
+
+    def __init__(self, strides, **kwargs):
+        super().__init__(**kwargs)
+        self.smallest_stride = strides[0]
+        self.expanded_side = strides[1] if len(strides) > 1 else strides[0]
+
+    def select_candidates_in_gts(self, xy_centers, gt_bboxes, eps=1e-9):
+        candidate_boxes = xyxy2xywh(gt_bboxes)
+        sides = candidate_boxes[..., 2:]
+        candidate_boxes[..., 2:] = torch.where(sides < self.smallest_stride, self.expanded_side, sides)
+        return super().select_candidates_in_gts(xy_centers, xywh2xyxy(candidate_boxes), eps)
+
+    def iou_calculation(self, gt_bboxes, pd_bboxes):
+        """Return the Gaussian Combined Distance similarity from equations (3) and (9)."""
+        gt_center, gt_size = xyxy2xywh(gt_bboxes.float()).chunk(2, dim=-1)
+        pd_center, pd_size = xyxy2xywh(pd_bboxes.float()).chunk(2, dim=-1)
+        center_delta = gt_center - pd_center
+        half_size_delta = (gt_size - pd_size) * 0.5
+        inv_size_squared = gt_size.clamp_min(self.eps).reciprocal().square()
+        inv_size_squared += pd_size.clamp_min(self.eps).reciprocal().square()
+        distance_squared = 0.5 * ((center_delta.square() + half_size_delta.square()) * inv_size_squared).sum(-1)
+        return torch.exp(-distance_squared.sqrt()).to(pd_bboxes.dtype)
 
 
 class RotatedTaskAlignedAssigner(TaskAlignedAssigner):

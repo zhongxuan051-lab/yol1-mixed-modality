@@ -6,7 +6,14 @@ import torch.nn.functional as F
 
 from ultralytics.utils.metrics import OKS_SIGMA
 from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh
-from ultralytics.utils.tal import RotatedTaskAlignedAssigner, TaskAlignedAssigner, dist2bbox, dist2rbox, make_anchors
+from ultralytics.utils.tal import (
+    RotatedTaskAlignedAssigner,
+    StalGcdAssigner,
+    TaskAlignedAssigner,
+    dist2bbox,
+    dist2rbox,
+    make_anchors,
+)
 from ultralytics.utils.torch_utils import autocast
 
 from .metrics import bbox_iou, probiou
@@ -173,7 +180,11 @@ class v8DetectionLoss:
 
         self.use_dfl = m.reg_max > 1
 
-        self.assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0)# 样本分配器
+        assigner_args = dict(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0)
+        if getattr(h, "stal_gcd", False):
+            self.assigner = StalGcdAssigner(strides=self.stride.tolist(), **assigner_args)
+        else:
+            self.assigner = TaskAlignedAssigner(**assigner_args)
         self.bbox_loss = BboxLoss(m.reg_max).to(device)# 边界框损失
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)# [0,1,2,...,15]
 
