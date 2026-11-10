@@ -41,6 +41,7 @@ from ultralytics.nn.modules import (
     Conv2,
     ConvTranspose,
     Detect,
+    DySample,
     DWConv,
     DWConvTranspose2d,
     Focus,
@@ -1029,6 +1030,9 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
                 args[3] = True
         elif m is AIFI:
             args = [ch[f], *args]
+        elif m is DySample:
+            c2 = ch[f]
+            args = [c2, *args]
         elif m in {HGStem, HGBlock}:
             c1, cm, c2 = ch[f], args[0], args[1]
             args = [c1, cm, c2, *args[2:]]

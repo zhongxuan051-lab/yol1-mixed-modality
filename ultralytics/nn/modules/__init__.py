@@ -86,8 +86,11 @@ from .transformer import (
     TransformerLayer,
 )
 
+from .upsample import DySample
+
 __all__ = (
     "Conv",
+    "DySample",
     "Conv2",
     "LightConv",
     "RepConv",
