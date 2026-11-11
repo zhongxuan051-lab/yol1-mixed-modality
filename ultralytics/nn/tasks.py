@@ -32,6 +32,7 @@ from ultralytics.nn.modules import (
     C2fPSA,
     C3Ghost,
     C3k2,
+    C3k2_DBB,
     C3x,
     CBFuse,
     CBLinear,
@@ -61,6 +62,7 @@ from ultralytics.nn.modules import (
     WorldDetect,
     v10Detect,
 )
+from ultralytics.nn.modules.dbb import DiverseBranchBlock
 from ultralytics.utils import DEFAULT_CFG_DICT, DEFAULT_CFG_KEYS, LOGGER, colorstr, emojis, yaml_load
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
 from ultralytics.utils.loss import (
@@ -213,6 +215,8 @@ class BaseModel(nn.Module):
                 if isinstance(m, RepConv):
                     m.fuse_convs()
                     m.forward = m.forward_fuse  # update forward
+                if isinstance(m, DiverseBranchBlock):
+                    m.switch_to_deploy()
                 if isinstance(m, RepVGGDW):
                     m.fuse()
                     m.forward = m.forward_fuse
@@ -980,6 +984,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             C2,
             C2f,
             C3k2,
+            C3k2_DBB,
             RepNCSPELAN4,
             ELAN1,
             ADown,
@@ -1013,6 +1018,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
                 C2,
                 C2f,
                 C3k2,
+                C3k2_DBB,
                 C2fAttn,
                 C3,
                 C3TR,
@@ -1025,7 +1031,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             }:
                 args.insert(2, n)  # number of repeats
                 n = 1
-            if m is C3k2 and scale in "mlx":  # for M/L/X sizes
+            if m in {C3k2, C3k2_DBB} and scale in "mlx":  # for M/L/X sizes
                 args[3] = True
         elif m is AIFI:
             args = [ch[f], *args]

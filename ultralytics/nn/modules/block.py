@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from ultralytics.utils.torch_utils import fuse_conv_and_bn
 
 from .conv import Conv, DWConv, GhostConv, LightConv, RepConv, autopad
+from .dbb import DiverseBranchBlock
 from .transformer import TransformerBlock
 
 __all__ = (
@@ -41,6 +42,7 @@ __all__ = (
     "CBFuse",
     "CBLinear",
     "C3k2",
+    "C3k2_DBB",
     "C2fPSA",
     "C2PSA",
     "RepVGGDW",
@@ -740,6 +742,28 @@ class C3k(C3):
         c_ = int(c2 * e)  # hidden channels
         # self.m = nn.Sequential(*(RepBottleneck(c_, c_, shortcut, g, k=(k, k), e=1.0) for _ in range(n)))
         self.m = nn.Sequential(*(Bottleneck(c_, c_, shortcut, g, k=(k, k), e=1.0) for _ in range(n)))
+
+
+class C3k2_DBB(C3k2):
+    """C3k2 with each internal bottleneck convolution replaced by a Diverse Branch Block."""
+
+    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
+        super().__init__(c1, c2, n, c3k, e, g, shortcut)
+        bottlenecks = [module for module in self.m.modules() if isinstance(module, Bottleneck)]
+        for bottleneck in bottlenecks:
+            for name in ("cv1", "cv2"):
+                conv = getattr(bottleneck, name).conv
+                dbb = DiverseBranchBlock(
+                    conv.in_channels,
+                    conv.out_channels,
+                    conv.kernel_size[0],
+                    stride=conv.stride[0],
+                    padding=conv.padding[0],
+                    dilation=conv.dilation[0],
+                    groups=conv.groups,
+                    nonlinear=Conv.default_act,
+                )
+                setattr(bottleneck, name, dbb)
 
 
 class RepVGGDW(torch.nn.Module):
