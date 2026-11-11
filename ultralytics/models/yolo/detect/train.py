@@ -8,6 +8,7 @@ import numpy as np
 import torch.nn as nn
 
 from ultralytics.data import build_dataloader, build_yolo_dataset
+from ultralytics.data.size_sampler import SizeWeightedSampler
 from ultralytics.engine.trainer import BaseTrainer
 from ultralytics.models import yolo
 from ultralytics.nn.tasks import DetectionModel
@@ -52,7 +53,12 @@ class DetectionTrainer(BaseTrainer):
             LOGGER.warning("WARNING ⚠️ 'rect=True' is incompatible with DataLoader shuffle, setting shuffle=False")
             shuffle = False
         workers = self.args.workers if mode == "train" else self.args.workers * 2
-        return build_dataloader(dataset, batch_size, workers, shuffle, rank)  # return dataloader
+        sampler = None
+        if mode == "train" and self.args.small_image_weight != 1:
+            if dataset.rect:
+                raise ValueError("Size-weighted sampling requires rect=False")
+            sampler = SizeWeightedSampler(dataset, self.args.small_image_weight, self.args.seed)
+        return build_dataloader(dataset, batch_size, workers, shuffle, rank, sampler=sampler)
 
     def preprocess_batch(self, batch):
         """Preprocesses a batch of images by scaling and converting to float."""

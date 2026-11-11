@@ -101,6 +101,7 @@ CLI_HELP_MSG = f"""
 
 # Define keys for arg type checks
 CFG_FLOAT_KEYS = {  # integer or float arguments, i.e. x=2 and x=2.0
+    "small_image_weight",
     "warmup_epochs",
     "box",
     "cls",
