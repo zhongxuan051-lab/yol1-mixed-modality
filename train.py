@@ -16,10 +16,10 @@ def main():
         optimizer="AdamW",
         lr0=0.001,
         seed=0,
-        device="0",
+        device="1",
+        nwd_constant=27.61,
         project="falling-detection2",
-        name="yolo11-real-rgb-ir-mixed-640",
-        
+        name="yolo11-real-rgb-ir-mixed-nwd-tal-640",
     )
 
 

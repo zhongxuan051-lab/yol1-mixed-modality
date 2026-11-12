@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from .checks import check_version
 from .metrics import bbox_iou, probiou
-from .ops import xywhr2xyxyxyxy
+from .ops import xywhr2xyxyxyxy, xyxy2xywh
 
 TORCH_1_10 = check_version(torch.__version__, "1.10.0")
 
@@ -263,6 +263,25 @@ class TaskAlignedAssigner(nn.Module):
         # Find each grid serve which gt(index)
         target_gt_idx = mask_pos.argmax(-2)  # (b, h*w)
         return target_gt_idx, fg_mask, mask_pos
+
+
+class NwdTaskAlignedAssigner(TaskAlignedAssigner):
+    """Use normalized Gaussian Wasserstein similarity for horizontal box matching."""
+
+    def __init__(self, nwd_constant, **kwargs):
+        super().__init__(**kwargs)
+        if not 0 < nwd_constant < float("inf"):
+            raise ValueError("nwd_constant must be finite and greater than zero")
+        self.nwd_constant = nwd_constant
+
+    def iou_calculation(self, gt_bboxes, pd_bboxes):
+        """Evaluate NWD for boxes in input-image pixels (https://arxiv.org/abs/2110.13389)."""
+        gt_xywh = xyxy2xywh(gt_bboxes.float())
+        pd_xywh = xyxy2xywh(pd_bboxes.float())
+        delta = gt_xywh - pd_xywh
+        delta[..., 2:] *= 0.5
+        distance = torch.linalg.vector_norm(delta, dim=-1)
+        return torch.exp(-distance / self.nwd_constant).to(pd_bboxes.dtype)
 
 
 class RotatedTaskAlignedAssigner(TaskAlignedAssigner):

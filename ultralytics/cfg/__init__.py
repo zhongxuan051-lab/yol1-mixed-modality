@@ -105,6 +105,7 @@ CFG_FLOAT_KEYS = {  # integer or float arguments, i.e. x=2 and x=2.0
     "box",
     "cls",
     "dfl",
+    "nwd_constant",
     "degrees",
     "shear",
     "time",
