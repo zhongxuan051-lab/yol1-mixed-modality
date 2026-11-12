@@ -18,6 +18,7 @@ from ultralytics.nn.modules import (
     C3TR,
     ELAN1,
     OBB,
+    PSConv,
     PSA,
     SPP,
     SPPELAN,
@@ -965,6 +966,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
         if m in {
             Classify,
             Conv,
+            PSConv,
             ConvTranspose,
             GhostConv,
             Bottleneck,

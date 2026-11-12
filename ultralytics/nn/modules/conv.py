@@ -10,6 +10,7 @@ import torch.nn as nn
 __all__ = (
     "Conv",# 标准卷积
     "Conv2",
+    "PSConv",
     "LightConv",
     "DWConv",# 逐深度卷积，每个输入通道单独用一个卷积核处理，通道之间在卷积过程中不混合信息。
     "DWConvTranspose2d",
@@ -52,6 +53,25 @@ class Conv(nn.Module):# 继承自nn.Module
     def forward_fuse(self, x):#融合前向传播：省略了 BN 层，用于推理加速
         """Perform transposed convolution of 2D data."""
         return self.act(self.conv(x))
+
+
+class PSConv(nn.Module):
+    """Pinwheel-shaped convolution from Yang et al. (AAAI 2025)."""
+
+    def __init__(self, c1, c2, k=3, s=1):
+        super().__init__()
+        self.k = k
+        self.horizontal = Conv(c1, c2 // 4, (1, k), s, p=0)
+        self.vertical = Conv(c1, c2 // 4, (k, 1), s, p=0)
+        self.merge = Conv(c2, c2, 2, p=0)
+
+    def forward(self, x):
+        k = self.k
+        left = self.horizontal(nn.functional.pad(x, (k, 0, 1, 0)))
+        right = self.horizontal(nn.functional.pad(x, (0, k, 0, 1)))
+        top = self.vertical(nn.functional.pad(x, (0, 1, k, 0)))
+        bottom = self.vertical(nn.functional.pad(x, (1, 0, 0, k)))
+        return self.merge(torch.cat((left, right, top, bottom), dim=1))
 
 
 class Conv2(Conv):# 继承自父类 Conv。标准3x3卷积 + 并行1x1卷积->训练时：两条路相加-> 推理时：融合成一个3x3卷积.

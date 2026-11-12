@@ -69,6 +69,7 @@ from .conv import (
     Focus,
     GhostConv,
     LightConv,
+    PSConv,
     RepConv,
     SpatialAttention,
 )
@@ -88,6 +89,7 @@ from .transformer import (
 
 __all__ = (
     "Conv",
+    "PSConv",
     "Conv2",
     "LightConv",
     "RepConv",

@@ -4,7 +4,7 @@ from ultralytics import YOLO
 
 
 def main():
-    model = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
+    model = YOLO("ultralytics/cfg/models/11/yolo11n-psconv-stem.yaml")
 
     model.train(
         data="data_mixed.yaml",
@@ -16,10 +16,9 @@ def main():
         optimizer="AdamW",
         lr0=0.001,
         seed=0,
-        device="0",
+        device="1",
         project="falling-detection2",
-        name="yolo11-real-rgb-ir-mixed-640",
-        
+        name="yolo11-real-rgb-ir-mixed-psconv-stem-640",
     )
 
 
