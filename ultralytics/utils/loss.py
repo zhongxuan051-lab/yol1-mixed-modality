@@ -9,7 +9,7 @@ from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh
 from ultralytics.utils.tal import RotatedTaskAlignedAssigner, TaskAlignedAssigner, dist2bbox, dist2rbox, make_anchors
 from ultralytics.utils.torch_utils import autocast
 
-from .metrics import bbox_iou, probiou
+from .metrics import bbox_iou, probiou, shape_iou
 from .tal import bbox2dist
 
 
@@ -91,15 +91,21 @@ class DFLoss(nn.Module):
 class BboxLoss(nn.Module):
     """Criterion class for computing training losses during training."""
 
-    def __init__(self, reg_max=16):
-        """Initialize the BboxLoss module with regularization maximum and DFL settings."""
+    def __init__(self, reg_max=16, shape_iou_scale=None):
+        """Initialize the box and DFL losses, with optional Shape-IoU regression."""
         super().__init__()
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None
+        self.shape_iou_scale = shape_iou_scale
 
     def forward(self, pred_dist, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask):
         """IoU loss."""
         weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1)
-        iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)
+        pred_fg, target_fg = pred_bboxes[fg_mask], target_bboxes[fg_mask]
+        scale = getattr(self, "shape_iou_scale", None)
+        if scale is None:
+            iou = bbox_iou(pred_fg, target_fg, xywh=False, CIoU=True)
+        else:
+            iou = shape_iou(pred_fg.float(), target_fg.float(), scale)
         loss_iou = ((1.0 - iou) * weight).sum() / target_scores_sum
 
         # DFL loss
@@ -174,7 +180,7 @@ class v8DetectionLoss:
         self.use_dfl = m.reg_max > 1
 
         self.assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0)# 样本分配器
-        self.bbox_loss = BboxLoss(m.reg_max).to(device)# 边界框损失
+        self.bbox_loss = BboxLoss(m.reg_max, shape_iou_scale=getattr(h, "shape_iou_scale", None)).to(device)
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)# [0,1,2,...,15]
 
     def preprocess(self, targets, batch_size, scale_tensor):

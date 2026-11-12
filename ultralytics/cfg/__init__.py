@@ -103,6 +103,7 @@ CLI_HELP_MSG = f"""
 CFG_FLOAT_KEYS = {  # integer or float arguments, i.e. x=2 and x=2.0
     "warmup_epochs",
     "box",
+    "shape_iou_scale",
     "cls",
     "dfl",
     "degrees",

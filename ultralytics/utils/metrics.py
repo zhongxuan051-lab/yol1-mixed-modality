@@ -129,6 +129,26 @@ def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, eps=1e-7
     return iou  # IoU
 
 
+def shape_iou(pred_boxes, target_boxes, scale, eps=1e-7):
+    """Compute Shape-IoU for aligned xyxy boxes (https://arxiv.org/abs/2312.17663)."""
+    pred_min, pred_max = pred_boxes.chunk(2, dim=-1)
+    target_min, target_max = target_boxes.chunk(2, dim=-1)
+    pred_size = pred_max - pred_min
+    target_size = target_max - target_min
+
+    target_shape = target_size.clamp_min(eps).pow(scale)
+    # Horizontal error uses the target height weight and vertical error uses the width weight.
+    axis_weight = 2 * target_shape.flip(-1) / target_shape.sum(dim=-1, keepdim=True)
+    center_delta = (pred_min + pred_max - target_min - target_max) * 0.5
+    enclosing_size = pred_max.maximum(target_max) - pred_min.minimum(target_min)
+    diagonal_sq = enclosing_size.square().sum(dim=-1, keepdim=True) + eps
+    distance_cost = (axis_weight * center_delta.square()).sum(dim=-1, keepdim=True) / diagonal_sq
+
+    size_delta = (pred_size - target_size).abs() / pred_size.maximum(target_size).clamp_min(eps)
+    shape_cost = (-torch.expm1(-axis_weight * size_delta)).pow(4).sum(dim=-1, keepdim=True)
+    return bbox_iou(pred_boxes, target_boxes, xywh=False, eps=eps) - distance_cost - 0.5 * shape_cost
+
+
 def mask_iou(mask1, mask2, eps=1e-7):
     """
     Calculate masks IoU.

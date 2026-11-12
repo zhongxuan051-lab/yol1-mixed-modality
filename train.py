@@ -15,11 +15,11 @@ def main():
         workers=6,
         optimizer="AdamW",
         lr0=0.001,
+        shape_iou_scale=0.5,
         seed=0,
-        device="0",
+        device="1",
         project="falling-detection2",
-        name="yolo11-real-rgb-ir-mixed-640",
-        
+        name="yolo11-real-rgb-ir-mixed-shape-iou-640",
     )
 
 
