@@ -1,3 +1,5 @@
+"""Compare FreqFusion with the unchanged baseline on RGB and IR validation sets."""
+import argparse
 from pathlib import Path
 
 from ultralytics import YOLO
@@ -5,53 +7,42 @@ from ultralytics import YOLO
 
 def main():
     root = Path(__file__).resolve().parent
-
-    rgb_weights = Path(
-        "/home/ot/Students/zx/multi-detection/falling-detection2/"
-        "yolo11-human detection.v2i.yolov11 -去时间戳rgb/"
-        "weights/best.pt"
-    )
-
-    ir_weights = (
-        root / "falling-detection2"
-        / "yolo11-real-ir-640"
-        / "weights" / "best.pt"
-    )
-
-    experiments = [
-        (
-            "RGB-only -> Real IR",
-            rgb_weights,
-            root / "data.yaml",       # 真实红外数据配置
-        ),
-        (
-            "IR-only -> RGB",
-            ir_weights,
-            root / "data_rgb.yaml",   # 可见光数据配置
-        ),
-    ]
-
-    for name, weights, data_yaml in experiments:
-        assert weights.is_file(), f"找不到权重：{weights}"
-        assert data_yaml.is_file(), f"找不到数据配置：{data_yaml}"
-
-        print(f"\n===== {name} =====", flush=True)
-
-        metrics = YOLO(str(weights)).val(
-            data=str(data_yaml),
-            split="test",
-            imgsz=640,
-            batch=4,
-            workers=0,
-            device=0,
-            plots=False,
-        )
-
-        print(f"\n===== {name}: precise results =====", flush=True)
-        print(f"Precision: {metrics.box.mp:.4f}", flush=True)
-        print(f"Recall:    {metrics.box.mr:.4f}", flush=True)
-        print(f"mAP50:     {metrics.box.map50:.4f}", flush=True)
-        print(f"mAP50-95:  {metrics.box.map:.4f}", flush=True)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dataset-root", type=Path, default=Path("/home/ot/Students/zx/yolo11-mixed-modality"))
+    parser.add_argument("--weights", type=Path, default=root / "falling-detection2/yolo11-real-rgb-ir-mixed-freqfusion-full-640/weights/best.pt")
+    parser.add_argument("--device", default="1")
+    args = parser.parse_args()
+    experiments = {
+        "Baseline": args.dataset_root / "falling-detection2/yolo11-real-rgb-ir-mixed-640/weights/best.pt",
+        "FreqFusion": args.weights,
+    }
+    for weights in experiments.values():
+        if not weights.is_file():
+            raise FileNotFoundError(weights)
+    rows = []
+    scores = {}
+    for name, weights in experiments.items():
+        for modality, data in (("RGB", "data_rgb.yaml"), ("IR", "data.yaml")):
+            metrics = YOLO(str(weights)).val(
+                data=str(args.dataset_root / data), split="val",
+                imgsz=640, batch=4, workers=0, device=args.device, plots=False,
+            ).box
+            scores[name, modality] = metrics
+            rows.append(
+                f"{name} | {modality} | P {metrics.mp:.4f} | R {metrics.mr:.4f} | "
+                f"mAP50 {metrics.map50:.4f} | AP75 {metrics.map75:.4f} | "
+                f"mAP50-95 {metrics.map:.4f}"
+            )
+    print("\n" + "\n".join(rows), flush=True)
+    print("\n| 验证集 | 指标 | 基线 | FreqFusion | 变化（百分点） |")
+    print("|---|---|---:|---:|---:|")
+    for modality in ("RGB", "IR"):
+        baseline = scores["Baseline", modality]
+        candidate = scores["FreqFusion", modality]
+        for label, attr in (("AP75", "map75"), ("mAP50–95", "map"), ("Recall", "mr")):
+            before, after = getattr(baseline, attr), getattr(candidate, attr)
+            display = "真实 IR" if modality == "IR" else modality
+            print(f"| {display} | {label} | {before:.4f} | {after:.4f} | {(after - before) * 100:+.2f} |")
 
 
 if __name__ == "__main__":
