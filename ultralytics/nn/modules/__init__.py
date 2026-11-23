@@ -73,6 +73,7 @@ from .conv import (
     SpatialAttention,
 )
 from .head import OBB, Classify, Detect, Pose, RTDETRDecoder, Segment, WorldDetect, v10Detect
+from .lqe import LQE, Detect_LQE
 from .transformer import (
     AIFI,
     MLP,
@@ -126,6 +127,8 @@ __all__ = (
     "BottleneckCSP",
     "Proto",
     "Detect",
+    "Detect_LQE",
+    "LQE",
     "Segment",
     "Pose",
     "Classify",
