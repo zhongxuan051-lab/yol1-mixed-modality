@@ -1,0 +1,5 @@
+# Additional dependencies for the supplied FSConv's original Haar DWT backend.
+pytorch-wavelets==1.3.0
+PyWavelets>=1.4.1
+# pytorch-wavelets 1.3.0 imports pkg_resources from setuptools.
+setuptools>=57,<81

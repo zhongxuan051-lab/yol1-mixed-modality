@@ -73,6 +73,7 @@ from .conv import (
     SpatialAttention,
 )
 from .head import OBB, Classify, Detect, Pose, RTDETRDecoder, Segment, WorldDetect, v10Detect
+from .fsconv import FSConv
 from .transformer import (
     AIFI,
     MLP,
@@ -88,6 +89,7 @@ from .transformer import (
 
 __all__ = (
     "Conv",
+    "FSConv",
     "Conv2",
     "LightConv",
     "RepConv",
