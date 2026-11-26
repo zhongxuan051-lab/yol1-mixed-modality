@@ -1,10 +1,12 @@
 from multiprocessing import freeze_support
 
 from ultralytics import YOLO
+from ultralytics.nn.modules.dcnv4_backend import require_cuda_extension
 
 
 def main():
-    model = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
+    require_cuda_extension()
+    model = YOLO("ultralytics/cfg/models/11/yolo11n-dcnv4.yaml")
 
     model.train(
         data="data_mixed.yaml",
@@ -16,9 +18,9 @@ def main():
         optimizer="AdamW",
         lr0=0.001,
         seed=0,
-        device="0",
+        device="1",
         project="falling-detection2",
-        name="yolo11-real-rgb-ir-mixed-640",
+        name="yolo11-real-rgb-ir-mixed-dcnv4-640",
         
     )
 

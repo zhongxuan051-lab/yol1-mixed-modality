@@ -57,6 +57,7 @@ from .block import (
     ResNetLayer,
     SCDown,
 )
+from .dcnv4 import C3k2_DCNv4
 from .conv import (
     CBAM,
     ChannelAttention,
@@ -87,6 +88,7 @@ from .transformer import (
 )
 
 __all__ = (
+    "C3k2_DCNv4",
     "Conv",
     "Conv2",
     "LightConv",

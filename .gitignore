@@ -175,3 +175,7 @@ calibration_*.npy
 *.cache
 *.npy
 .env.*
+
+# Vendor build entry is required for the DCNv4 experiment.
+!third_party/DCNv4_op/setup.py
+*.pyd
