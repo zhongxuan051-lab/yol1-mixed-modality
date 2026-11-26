@@ -73,6 +73,7 @@ from .conv import (
     SpatialAttention,
 )
 from .head import OBB, Classify, Detect, Pose, RTDETRDecoder, Segment, WorldDetect, v10Detect
+from .cglu import C2PSA_CGLU
 from .transformer import (
     AIFI,
     MLP,
@@ -117,6 +118,7 @@ __all__ = (
     "SCDown",
     "C2fPSA",
     "C2PSA",
+    "C2PSA_CGLU",
     "C2fAttn",
     "C3x",
     "C3TR",
