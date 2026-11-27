@@ -72,6 +72,7 @@ from .conv import (
     RepConv,
     SpatialAttention,
 )
+from .drfd import DRFD
 from .head import OBB, Classify, Detect, Pose, RTDETRDecoder, Segment, WorldDetect, v10Detect
 from .transformer import (
     AIFI,
@@ -87,6 +88,7 @@ from .transformer import (
 )
 
 __all__ = (
+    "DRFD",
     "Conv",
     "Conv2",
     "LightConv",
