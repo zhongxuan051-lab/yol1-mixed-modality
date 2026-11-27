@@ -12,10 +12,11 @@ from ultralytics.utils.tal import TORCH_1_10, dist2bbox, dist2rbox, make_anchors
 
 from .block import DFL, BNContrastiveHead, ContrastiveHead, Proto
 from .conv import Conv, DWConv
+from .deconv import DEConv
 from .transformer import MLP, DeformableTransformerDecoder, DeformableTransformerDecoderLayer
 from .utils import bias_init_with_prob, linear_init
 
-__all__ = "Detect", "Segment", "Pose", "Classify", "OBB", "RTDETRDecoder", "v10Detect"
+__all__ = "Detect", "Detect_DEConv", "Segment", "Pose", "Classify", "OBB", "RTDETRDecoder", "v10Detect"
 
 #我在excel里记录了detect类数据流
 class Detect(nn.Module):
@@ -161,6 +162,15 @@ class Detect(nn.Module):
         scores, index = scores.flatten(1).topk(min(max_det, anchors))
         i = torch.arange(batch_size)[..., None]  # batch indices
         return torch.cat([boxes[i, index // nc], scores[..., None], (index % nc)[..., None].float()], dim=-1)
+
+
+class Detect_DEConv(Detect):
+    """Use DEConv for the second spatial convolution in each box regression branch."""
+
+    def __init__(self, nc=80, ch=()):
+        super().__init__(nc, ch)
+        for branch in self.cv2:
+            branch[1] = DEConv(branch[1].conv.out_channels)
 
 
 class Segment(Detect):
